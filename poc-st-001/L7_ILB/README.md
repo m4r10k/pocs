@@ -5,7 +5,7 @@ This folder deploys a GKE Cluster with 3 services which are accessible via the *
 
 The network, Firewall rules and cluster are deployed via gcloud (shell script).
 
-The K8s deployments, services, ingress and L7 ILB are all deployed declaratively via K8s resource manifest files.
+The K8s deployments, backend-config, services, ingress and L7 ILB are all deployed declaratively via K8s resource manifest files.
 
 ## Install instructions
 
