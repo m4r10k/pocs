@@ -1,7 +1,7 @@
 # Deploy a private GKE cluster with L7 ILB access to services
 
 ## Description
-Source files for the deployment of a GKE Cluster with 3 services which are accessible via the L7 ILB.
+This folder deploys a GKE Cluster with 3 services which are accessible via the **GKE L7 ILB**. All services are accessible via the same IP and PORT, but via different URL paths. In addition to a path-based routing service-2 and service-3 are configured with **Session Affinity**.
 
 The network, Firewall rules and cluster are deployed via gcloud (shell script).
 
