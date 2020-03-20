@@ -1,0 +1,56 @@
+# service 1
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-1
+  namespace: l7-ilb
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  ports:
+  - name: port1
+    port: 80
+    protocol: TCP
+  selector:
+    app: app1
+  type: NodePort
+
+---
+
+# service 2
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-2
+  namespace: l7-ilb
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    beta.cloud.google.com/backend-config: '{"ports": {"80":"backendconfig-svc2"}}'
+spec:
+  ports:
+  - name: port1
+    port: 80
+    protocol: TCP
+  selector:
+    app: app2
+  type: NodePort
+
+---
+
+# service 3
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-3
+  namespace: l7-ilb
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    beta.cloud.google.com/backend-config: '{"ports": {"80":"backendconfig-svc3"}}'
+spec:
+  ports:
+  - name: port1
+    port: 80
+    protocol: TCP
+  selector:
+    app: app3
+  type: NodePort

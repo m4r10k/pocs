@@ -1,0 +1,28 @@
+# internal-ingress config
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: l7-ilb-ingress
+  namespace: l7-ilb
+  annotations:
+    kubernetes.io/ingress.class: "gce-internal"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /*
+            backend:
+              serviceName: service-1
+              servicePort: 80
+          - path: /service1 
+            backend:
+              serviceName: service-1
+              servicePort: 80
+          - path: /service2
+            backend:
+              serviceName: service-2
+              servicePort: 80
+          - path: /service3
+            backend:
+              serviceName: service-3
+              servicePort: 80

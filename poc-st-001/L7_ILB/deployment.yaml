@@ -1,0 +1,84 @@
+# deployment for service 1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: app1
+  name: app1-deployment
+  namespace: l7-ilb
+spec:
+  selector:
+    matchLabels:
+      app: app1
+  minReadySeconds: 60
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: app1
+    spec:
+      containers:
+      - image: gcr.io/hewagner-demos-2/hello-go-green:v1.0.0
+        name: app1-container
+        ports:
+        - containerPort: 80
+          protocol: TCP
+      terminationGracePeriodSeconds: 90
+
+---
+
+# deployment for service 2
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: app2
+  name: app2-deployment
+  namespace: l7-ilb
+spec:
+  selector:
+    matchLabels:
+      app: app2
+  minReadySeconds: 60
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: app2
+    spec:
+      containers:
+      - image: gcr.io/hewagner-demos-2/hello-go-blue:v1.0.0
+        name: app2-container
+        ports:
+        - containerPort: 80
+          protocol: TCP
+      terminationGracePeriodSeconds: 90
+
+---
+
+# deployment for service 3
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: app3
+  name: app3-deployment
+  namespace: l7-ilb
+spec:
+  selector:
+    matchLabels:
+      app: app3
+  minReadySeconds: 60
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: app3
+    spec:
+      containers:
+      - image: gcr.io/hewagner-demos-2/hello-go-red:v1.0.0
+        name: app3-container
+        ports:
+        - containerPort: 80
+          protocol: TCP
+      terminationGracePeriodSeconds: 90
