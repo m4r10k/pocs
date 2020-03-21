@@ -18,7 +18,7 @@ spec:
         app: app1
     spec:
       containers:
-      - image: gcr.io/hewagner-demos-2/hello-go-green:v1.0.0
+      - image: gcr.io/hewagner-demos-2/l7-ilb-green:v1.0.0
         name: app1-container
         ports:
         - containerPort: 80
@@ -47,7 +47,7 @@ spec:
         app: app2
     spec:
       containers:
-      - image: gcr.io/hewagner-demos-2/hello-go-blue:v1.0.0
+      - image: gcr.io/hewagner-demos-2/l7-ilb-blue:v1.0.0
         name: app2-container
         ports:
         - containerPort: 80
@@ -76,7 +76,7 @@ spec:
         app: app3
     spec:
       containers:
-      - image: gcr.io/hewagner-demos-2/hello-go-red:v1.0.0
+      - image: gcr.io/hewagner-demos-2/l7-ilb-red:v1.0.0
         name: app3-container
         ports:
         - containerPort: 80

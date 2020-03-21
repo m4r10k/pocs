@@ -1,0 +1,57 @@
+# service 1
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-1
+  namespace: td
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports":{"80":{}}}'
+spec:
+  ports:
+  - name: port1
+    port: 80
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: app1
+  type: ClusterIP
+
+---
+
+# service 2
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-2
+  namespace: td
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports":{"80":{}}}'
+spec:
+  ports:
+  - name: port1
+    port: 80
+    protocol: TCP
+    targetPort: 8001
+  selector:
+    app: app2
+  type: ClusterIP
+
+---
+
+# service 3
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-3
+  namespace: td
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports":{"80":{}}}'
+spec:
+  ports:
+  - name: port1
+    port: 80
+    protocol: TCP
+    targetPort: 8002
+  selector:
+    app: app3
+  type: ClusterIP

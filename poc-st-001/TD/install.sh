@@ -15,24 +15,25 @@ then
     exit
 fi
 
-# PROJECT="hewagner-demos-2"
 REGION="europe-west3"
 VM_ZONE="europe-west3-c"
-NETWORK_NAME="ilb-vpc"
-GKE_SUBNET_NAME="ilb-subnet"
-PROXY_ONLY_SUBNET_NAME="ilb-proxy-only-subnet"
-GKE_IP_RANGE="10.10.0.0/26"
-PROXY_ONLY_IP_RANGE="10.10.0.64/26"
-FW_PREFIX="ilb-vpc"
-GKE_MASTER_EXT_IP="172.16.10.0/28"
-KEYRING_NAME="ilb-key-ring"
-KEY_NAME="ilb-key"
-CLU_NAME="l7-ilb-cluster"
-CONTAINER_NAME_1="l7-ilb-green"
-CONTAINER_NAME_2="l7-ilb-blue"
-CONTAINER_NAME_3="l7-ilb-red"
+NETWORK_NAME="td-vpc"
+GKE_SUBNET_NAME="td-subnet"
+GKE_IP_RANGE="10.11.0.0/26"
+FW_PREFIX="td-vpc"
+GKE_MASTER_EXT_IP="172.16.11.0/28"
+KEYRING_NAME="td-key-ring-1"
+KEY_NAME="td-key-1"
+CLU_NAME="td-cluster"
+CONTAINER_NAME_1="td-green"
+CONTAINER_NAME_2="td-blue"
+CONTAINER_NAME_3="td-red"
 CONTAINER_VERSION="v1.0.0"
-TEST_VM_NAME="l7-ilb-test-vm"
+TEST_VM_NAME="td-test-vm"
+ROUTER_NAME="td-router"
+NAT="td-nat"
+NAMESPACE="td"
+SERVICE_PREFIX="service"
 
 # Delete resources if -d was provided
 if [ $DELETE == 1 ]; then
@@ -60,8 +61,9 @@ if [ $DELETE == 1 ]; then
         gcr.io/$PROJECT/$CONTAINER_NAME_3 \
         --project $PROJECT -q
 
+
     # delete NEGs
-    for neg in $(gcloud compute network-endpoint-groups list --project=$PROJECT --format="value(name)" --filter="zone:europe-west3-a")
+    for neg in $(gcloud compute network-endpoint-groups list --project=$PROJECT --format="value(name)" --filter="zone:$REGION-a" | grep "$NAMESPACE-$SERVICE_PREFIX")
     do
         echo $neg
         gcloud compute network-endpoint-groups delete $neg --zone=$REGION-a -q --project=$PROJECT
@@ -71,6 +73,8 @@ if [ $DELETE == 1 ]; then
 
     # delete firewall rules
     gcloud compute firewall-rules delete $FW_PREFIX-fw-allow-ssh \
+        --project=$PROJECT -q
+    gcloud compute firewall-rules delete $FW_PREFIX-fw-allow-health-checks \
         --project=$PROJECT -q
 
     # delete subnet and VPC
@@ -88,11 +92,18 @@ if [ $DELETE == 1 ]; then
         fi
         sleep 15
     done
-    gcloud compute networks subnets delete $GKE_SUBNET_NAME \
+
+    # delete networking services
+    gcloud compute routers nats delete $NAT \
         --project=$PROJECT \
         --region=$REGION \
+        --router=$ROUTER_NAME \
         -q
-    gcloud compute networks subnets delete $PROXY_ONLY_SUBNET_NAME \
+    gcloud compute routers delete $ROUTER_NAME \
+        --region=$REGION \
+        --project=$PROJECT \
+        -q
+    gcloud compute networks subnets delete $GKE_SUBNET_NAME \
         --project=$PROJECT \
         --region=$REGION \
         -q
@@ -105,18 +116,29 @@ if [ $DELETE == 1 ]; then
     exit
 fi
 
-
 # Enable APIS
 gcloud services enable \
     compute.googleapis.com \
     container.googleapis.com \
     cloudkms.googleapis.com \
     cloudbuild.googleapis.com \
+    trafficdirector.googleapis.com \
     --project=$PROJECT
+
+# Enable the sidecar proxy to access the xDS-server 
+# (trafficdirector.googleapis.com). The proxy uses for this
+# the service account of the GKE node instance and that's why
+# it needs the compute.networkViewer role.
+SERVICE_ACCOUNT_EMAIL=`gcloud iam service-accounts list \
+  --project=$PROJECT \
+  --format='value(email)' \
+  --filter='displayName:Compute Engine default service account'`
+gcloud projects add-iam-policy-binding ${PROJECT} \
+  --member serviceAccount:${SERVICE_ACCOUNT_EMAIL} \
+  --role roles/compute.networkViewer
 
 
 ### NETWORKING
-### https://cloud.google.com/load-balancing/docs/l7-internal/setting-up-l7-internal#configure-a-network
 
 # create vpc
 gcloud compute networks create $NETWORK_NAME \
@@ -130,15 +152,6 @@ gcloud compute networks subnets create $GKE_SUBNET_NAME \
     --region=$REGION \
     --range=$GKE_IP_RANGE
 
-# create proxy only subnet
-gcloud compute networks subnets create $PROXY_ONLY_SUBNET_NAME \
-    --project=$PROJECT \
-    --network=$NETWORK_NAME \
-    --region=$REGION \
-    --range=$PROXY_ONLY_IP_RANGE \
-    --purpose=INTERNAL_HTTPS_LOAD_BALANCER \
-    --role=ACTIVE
-
 
 # allow ssh access to any nodes in the gke subnet with "allow-ssh" tag
 gcloud compute firewall-rules create $FW_PREFIX-fw-allow-ssh \
@@ -149,6 +162,14 @@ gcloud compute firewall-rules create $FW_PREFIX-fw-allow-ssh \
     --target-tags=allow-ssh \
     --rules=tcp:22
 
+# allow health checks
+gcloud compute firewall-rules create $FW_PREFIX-fw-allow-health-checks \
+    --project=$PROJECT \
+    --network $NETWORK_NAME \
+    --action ALLOW \
+    --direction INGRESS \
+    --source-ranges 35.191.0.0/16,130.211.0.0/22 \
+    --rules tcp
 
 ### Prepare for application-layer secrets
 # Create customer managed encryption key for App-layer-secrets
@@ -228,8 +249,8 @@ then
     echo "Testing kubectl by showing cluster nodes..."
     kubectl get nodes
 
-    echo "Creating namespace 'l7-ilb...'"
-    kubectl create namespace l7-ilb
+    echo "Creating namespace 'td...'"
+    kubectl create namespace $NAMESPACE
 else
     echo "### Error. No cluster deployed. ###"
 fi
@@ -254,3 +275,19 @@ do
         echo "Error building container $i"
     fi
 done
+
+# Create a Cloud Router for NAT
+gcloud compute routers create $ROUTER_NAME \
+    --project $PROJECT \
+    --region=$REGION \
+    --network=$NETWORK_NAME \
+    --asn=64512
+
+# Enable Cloud NAT because we have a private cluster
+gcloud compute routers nats create $NAT \
+    --router=$ROUTER_NAME \
+    --auto-allocate-nat-external-ips \
+    --nat-all-subnet-ip-ranges \
+    --enable-logging \
+	--region $REGION \
+	--project $PROJECT

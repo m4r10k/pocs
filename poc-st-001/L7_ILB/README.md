@@ -7,8 +7,8 @@ The network, Firewall rules and cluster are deployed via gcloud (shell script).
 
 The K8s deployments, backend-config, services, ingress and L7 ILB are all deployed declaratively via K8s resource manifest files.
 
-## Install instructions
 
+## Install instructions
 * Open the command line, make sure gcloud is installed and authenticate yourself with gcloud auth login
 * Change the PROJECT Env var in install.sh
 * Run the following
@@ -105,7 +105,7 @@ If you want to update the source code of one of the 3 services proceed as follow
    gcloud builds submit --tag gcr.io/[PROJECT_ID]/[CONTAINER_NAME]:[VERSION]--project=[PROJECT_ID]
 
    # Example:
-   gcloud builds submit --tag gcr.io/hewagner-demos-2/hello-go-green:v1.1.0 --project=hewagner-demos-2
+   gcloud builds submit --tag gcr.io/hewagner-demos-2/l7-ilb-green:v1.1.0 --project=hewagner-demos-2
    ```
 4) Apply your deployment.yaml file:
    ```
