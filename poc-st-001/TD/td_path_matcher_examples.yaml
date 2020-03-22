@@ -1,0 +1,288 @@
+# Route traffic to a single service
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE1_URL]
+          weight: 100
+
+
+# Split traffic between multiple services
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE1_URL]
+          weight: 70
+        - backendService: $[SERVICE2_URL]
+          weight: 30
+
+# URL Redirect
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    urlRedirect:
+      hostRedirect: $[REDIRECT_HOST]
+      pathRedirect: $[REDIRECT_PATH]
+      redirectResponseCode: FOUND,
+      stripQuery: True
+
+# Mirror Traffic
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE1_URL]
+          weight: 100
+      requestMirrorPolicy:
+        backendService: $[MIRROR_SERVICE_URL]
+
+# Retry failed requests
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE1_URL]
+          weight: 100
+      retryPolicy:
+        retryConditions: 502, 504
+        numRetries: 3
+        perTryTimeout:
+          seconds: 1
+          nanos: 50
+
+# Introduce faults to % of traffic
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE1_URL]
+          weight: 100
+      faultInjectionPolicy:
+        delay:
+          fixedDelay:
+            seconds: 10
+            nanos: 20
+          percentage: 25
+        abort:
+          httpStatus: 503
+          percentage: 50
+
+# Manipulate request/response headers
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    headerAction:
+      requestHeadersToAdd:
+        - headerName: header-1-name
+          headerValue: header-1-value
+          replace: True
+      requestHeadersToRemove:
+        - header-2-name
+        - header-3-name
+      responseHeadersToAdd:
+        - headerName: header-4-name
+          headerValue: header-4-value
+          replace: True
+      responseHeadersToRemove:
+        - header-5-name
+        - header-6-name
+
+# Rewrite URL host/path
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: / 
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE1_URL]
+          weight: 100
+      urlRewrite:
+        hostRewrite: $[REWRITE_HOST]
+        pathPrefixRewrite: $[REWRITE_PATH]
+
+# Traffic steering based on user agent with URL rewrite
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /mobile/
+        headerMatches:
+         - headerName: User-Agent
+           regexMatch: .*Android.*  
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE_ANDROID_URL]
+          weight: 100
+      urlRewrite:
+        pathPrefixRewrite: $[REWRITE_PATH_ANDROID]
+  - matchRules:
+      - prefixMatch: /mobile/
+        headerMatches:
+          - headerName: User-Agent
+            regexMatch: .*iPhone.*
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE_IPHONE_URL]
+          weight: 100
+      urlRewrite:
+        pathPrefixRewrite: $[REWRITE_PATH_IPHONE]
+  - matchRules:
+      - prefixMatch: /mobile/
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE_IPHONE_URL]
+          weight: 100
+
+# Canarying
+name: matcher1
+defaultService: $[DEFAULT_SERVICE_URL]
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE_CANARY_URL]
+          weight: 2
+        - backendService: $[SERVICE_URL]
+          weight: 98
+
+# Fault injection
+defaultService: $[DEFAULT_SERVICE_URL]
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: $[PRIORITY]
+    routeAction:
+      weightedBackendServices:
+        - backendService: $[SERVICE_URL]
+          weight: 100
+      faultInjectionPolicy:
+        delay:
+          fixedDelay:
+            seconds: 10
+            nanos: 0
+          percentage: 100
+        abort:
+          httpStatus: 503
+          percentage: 50
+
+
+
+defaultService: projects/hewagner-demos-2/global/backendServices/td-backend-service11
+name: path-matcher-9
+pathRules:
+- paths:
+  - /service11
+  service: projects/hewagner-demos-2/global/backendServices/td-backend-service11
+- paths:
+  - /service22
+  service: projects/hewagner-demos-2/global/backendServices/td-backend-service22
+- paths:
+  - /service33
+  service: projects/hewagner-demos-2/global/backendServices/td-backend-service33
+- paths:
+  - /service1
+  service: projects/hewagner-demos-2/global/backendServices/td-gke-service
+- paths:
+  - /service2
+  service: projects/hewagner-demos-2/global/backendServices/td-gke-service2
+- paths:
+  - /service3
+  service: projects/hewagner-demos-2/global/backendServices/td-gke-service3
+
+
+defaultService: projects/hewagner-demos-2/global/backendServices/td-backend-service11
+name: matcher1
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: 1
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service11
+          weight: 70
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service22
+          weight: 30
+          
+
+defaultService: projects/hewagner-demos-2/global/backendServices/td-backend-service11
+name: path-matcher-9
+routeRules:
+  - matchRules:
+      - prefixMatch: /
+    priority: 0
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-gke-service
+          weight: 70
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service11
+          weight: 30
+  - matchRules:
+      - prefixMatch: /service1
+    priority: 1
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-gke-service
+          weight: 100
+  - matchRules:
+      - prefixMatch: /service11
+    priority: 2
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service11
+          weight: 100
+  - matchRules:
+      - prefixMatch: /service22
+    priority: 3
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service22
+          weight: 100
+  - matchRules:
+      - prefixMatch: /service2
+    priority: 4
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-gke-service2
+          weight: 100
+  - matchRules:
+      - prefixMatch: /service3
+    priority: 5
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-gke-service3
+          weight: 100

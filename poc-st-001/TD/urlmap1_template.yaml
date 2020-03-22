@@ -1,0 +1,55 @@
+defaultService: projects/PROJECT_ID/global/backendServices/td-backend-service11
+name: URL_MAP_NAME
+hostRules:
+- hosts:
+  - he.com
+  pathMatcher: path-matcher-td
+kind: compute#urlMap
+pathMatchers:
+- defaultService: projects/PROJECT_ID/global/backendServices/td-backend-service11
+  name: path-matcher-td
+  routeRules:
+  - matchRules:
+    - prefixMatch: /
+    priority: 0
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/PROJECT_ID/global/backendServices/td-gke-service
+        weight: 70
+      - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service11
+        weight: 30
+  - matchRules:
+    - prefixMatch: /service1
+    priority: 1
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/PROJECT_ID/global/backendServices/td-gke-service
+        weight: 100
+  - matchRules:
+    - prefixMatch: /service11
+    priority: 2
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service11
+        weight: 100
+  - matchRules:
+    - prefixMatch: /service22
+    priority: 3
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service22
+        weight: 100
+  - matchRules:
+    - prefixMatch: /service2
+    priority: 4
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/PROJECT_ID/global/backendServices/td-gke-service2
+        weight: 100
+  - matchRules:
+    - prefixMatch: /service3
+    priority: 5
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/PROJECT_ID/global/backendServices/td-gke-service3
+        weight: 100

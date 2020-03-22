@@ -19,16 +19,16 @@ REGION="europe-west3"
 VM_ZONE="europe-west3-c"
 NETWORK_NAME="td-vpc"
 GKE_SUBNET_NAME="td-subnet"
-GKE_IP_RANGE="10.11.0.0/26"
+GKE_IP_RANGE="10.11.0.0/20"
 FW_PREFIX="td-vpc"
-GKE_MASTER_EXT_IP="172.16.11.0/28"
+GKE_MASTER_EXT_IP="172.16.1.0/28"
 KEYRING_NAME="td-key-ring-1"
 KEY_NAME="td-key-1"
 CLU_NAME="td-cluster"
 CONTAINER_NAME_1="td-green"
 CONTAINER_NAME_2="td-blue"
 CONTAINER_NAME_3="td-red"
-CONTAINER_VERSION="v1.0.0"
+CONTAINER_VERSION="v1.0.1"
 TEST_VM_NAME="td-test-vm"
 ROUTER_NAME="td-router"
 NAT="td-nat"
@@ -43,22 +43,15 @@ if [ $DELETE == 1 ]; then
         --region=$REGION \
         -q --async
 
-
-    # delete the test VM
-    gcloud compute instances delete $TEST_VM_NAME \
-        --project=$PROJECT \
-        --zone=$VM_ZONE \
-        -q
-
     # delete the containers in the registry
     gcloud container images delete \
-        gcr.io/$PROJECT/$CONTAINER_NAME_1 \
+        gcr.io/$PROJECT/$CONTAINER_NAME_1:$CONTAINER_VERSION \
         --project $PROJECT -q
     gcloud container images delete \
-        gcr.io/$PROJECT/$CONTAINER_NAME_2 \
+        gcr.io/$PROJECT/$CONTAINER_NAME_2:$CONTAINER_VERSION \
         --project $PROJECT -q
     gcloud container images delete \
-        gcr.io/$PROJECT/$CONTAINER_NAME_3 \
+        gcr.io/$PROJECT/$CONTAINER_NAME_3:$CONTAINER_VERSION \
         --project $PROJECT -q
 
 
@@ -75,6 +68,8 @@ if [ $DELETE == 1 ]; then
     gcloud compute firewall-rules delete $FW_PREFIX-fw-allow-ssh \
         --project=$PROJECT -q
     gcloud compute firewall-rules delete $FW_PREFIX-fw-allow-health-checks \
+        --project=$PROJECT -q
+    gcloud compute firewall-rules delete $FW_PREFIX-fw-http-rfc1918 \
         --project=$PROJECT -q
 
     # delete subnet and VPC
@@ -139,11 +134,11 @@ gcloud projects add-iam-policy-binding ${PROJECT} \
 
 
 ### NETWORKING
-
 # create vpc
 gcloud compute networks create $NETWORK_NAME \
     --project=$PROJECT \
-    --subnet-mode=custom
+    --subnet-mode=custom \
+    --bgp-routing-mode=global
 
 # create GKE subnet
 gcloud compute networks subnets create $GKE_SUBNET_NAME \
@@ -171,6 +166,15 @@ gcloud compute firewall-rules create $FW_PREFIX-fw-allow-health-checks \
     --source-ranges 35.191.0.0/16,130.211.0.0/22 \
     --rules tcp
 
+# allow RFC1918 traffic
+gcloud compute firewall-rules create $FW_PREFIX-fw-http-rfc1918 \
+    --project=$PROJECT \
+    --network $NETWORK_NAME \
+    --action ALLOW \
+    --direction INGRESS \
+    --source-ranges 10.0.0.0/8,192.168.0.0/16,172.16.0.0/16 \
+    --rules tcp:80,tcp:8000
+
 ### Prepare for application-layer secrets
 # Create customer managed encryption key for App-layer-secrets
 gcloud kms keyrings create $KEYRING_NAME \
@@ -182,16 +186,6 @@ gcloud kms keys create $KEY_NAME \
   --purpose=encryption \
   --location $REGION \
   --keyring $KEYRING_NAME
-
-# deploy test VM
-gcloud beta compute instances create $TEST_VM_NAME \
-    --project=$PROJECT \
-    --zone=$VM_ZONE \
-    --machine-type=n1-standard-1 \
-    --subnet=$GKE_SUBNET_NAME \
-    --scopes=https://www.googleapis.com/auth/cloud-platform \
-    --tags=allow-ssh \
-    --async
 
 # Grant access to the container engine service account
 PRJN=$(gcloud projects list --filter='project_id:'$PROJECT --format='value(PROJECT_NUMBER)')
@@ -209,31 +203,23 @@ gcloud kms keys add-iam-policy-binding $KEY_NAME \
 gcloud beta container clusters create $CLU_NAME \
     --project $PROJECT \
     --region $REGION \
+    --network $NETWORK_NAME \
+    --subnetwork $GKE_SUBNET_NAME \
+    --scopes https://www.googleapis.com/auth/cloud-platform \
     --no-enable-basic-auth \
-    --release-channel "rapid" \
-    --machine-type "n1-standard-1" \
-    --image-type "COS" \
-    --disk-type "pd-standard" \
-    --disk-size "100" \
-    --metadata disable-legacy-endpoints=true \
-    --scopes "https://www.googleapis.com/auth/cloud-platform" \
-    --num-nodes "1" \
-    --enable-stackdriver-kubernetes \
+    --release-channel "regular" \
+    --enable-ip-alias \
     --enable-private-nodes \
     --master-ipv4-cidr $GKE_MASTER_EXT_IP \
-    --enable-ip-alias \
-    --network "projects/$PROJECT/global/networks/$NETWORK_NAME" \
-    --subnetwork "projects/$PROJECT/regions/$REGION/subnetworks/$GKE_SUBNET_NAME" \
-    --default-max-pods-per-node "110" \
     --no-enable-master-authorized-networks \
+    --num-nodes "2" \
     --addons HorizontalPodAutoscaling,HttpLoadBalancing,ApplicationManager \
     --enable-autoupgrade \
     --enable-autorepair \
     --max-surge-upgrade 1 \
     --max-unavailable-upgrade 0 \
-    --database-encryption-key "projects/$PROJECT/locations/$REGION/keyRings/$KEYRING_NAME/cryptoKeys/$KEY_NAME" \
-    --identity-namespace "$PROJECT.svc.id.goog"
-
+    --enable-stackdriver-kubernetes \
+    --database-encryption-key "projects/$PROJECT/locations/$REGION/keyRings/$KEYRING_NAME/cryptoKeys/$KEY_NAME"
 
 # Test if cluster was created
 cluster=$(gcloud container clusters list --project=$PROJECT --format='value(NAME)' | grep $CLU_NAME)
@@ -251,6 +237,7 @@ then
 
     echo "Creating namespace 'td...'"
     kubectl create namespace $NAMESPACE
+
 else
     echo "### Error. No cluster deployed. ###"
 fi
@@ -280,9 +267,8 @@ done
 gcloud compute routers create $ROUTER_NAME \
     --project $PROJECT \
     --region=$REGION \
-    --network=$NETWORK_NAME \
-    --asn=64512
-
+    --network=$NETWORK_NAME 
+    
 # Enable Cloud NAT because we have a private cluster
 gcloud compute routers nats create $NAT \
     --router=$ROUTER_NAME \

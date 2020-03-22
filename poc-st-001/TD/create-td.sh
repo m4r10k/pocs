@@ -16,19 +16,15 @@ then
 fi
 
 REGION="europe-west3"
-VM_ZONE="europe-west3-c"
 USED_ZONES=( a b c )                        # multiple for regional clusters
-SVC_NAMES=( service-1 service-2 service-3 ) # for multiple services
+SVC_NAMES=( service11 service22 service33 )    # for multiple services
 NETWORK_NAME="td-vpc"
-GKE_SUBNET_NAME="td-subnet"
-GKE_IP_RANGE="10.11.0.0/26"
-CLU_NAME="td-cluster"
 BACKEND_SVC="td-backend"
-HEALTH_CHECK_NAME="td-gke-health-check"
+HEALTH_CHECK_NAME="td-health-check"
 URL_MAP="td-url-map"
 PATH_MATCHER="td-path-matcher"
 TARGET_HTTP_PROXY="td-proxy"
-GLOBAL_FORWARDING_RULE="td-gke-forwarding-rule"
+GLOBAL_FORWARDING_RULE="td-forwarding-rule"
 GLOBAL_FORWARDING_RULE_IP="0.0.0.0"
 GLOBAL_FORWARDING_RULE_PORT="80"
 GLOBAL_FORWARDING_RULE_LB_SCHEME="INTERNAL_SELF_MANAGED"
@@ -44,7 +40,6 @@ if [ $DELETE == 1 ]; then
     gcloud compute target-http-proxies delete $TARGET_HTTP_PROXY \
         --project=$PROJECT -q
     
-    # TD - delete 
     # TD - delete URL maps
     gcloud compute url-maps delete $URL_MAP \
         --project=$PROJECT -q
@@ -55,6 +50,12 @@ if [ $DELETE == 1 ]; then
         gcloud compute backend-services delete $BACKEND_SVC-$svc \
             --project=$PROJECT -q --global
     done
+
+    # TD - delete health check
+    gcloud compute health-checks delete $HEALTH_CHECK_NAME \
+        --project=$PROJECT -q
+
+    echo "Deleted all traffic director resources."
     exit
 fi
 
@@ -62,6 +63,10 @@ fi
 # You can also create multiple health checks or 1 different check per service.
 gcloud compute health-checks create http $HEALTH_CHECK_NAME \
     --project=$PROJECT \
+    --check-interval=3s \
+    --healthy-threshold=2 \
+    --unhealthy-threshold=4 \
+    --request-path="/" \
     --use-serving-port
 
 for svc in "${SVC_NAMES[@]}"
@@ -69,6 +74,7 @@ do
     # [3] create one backend service per GKE service
     gcloud compute backend-services create $BACKEND_SVC-$svc \
         --project=$PROJECT \
+        --network=$NETWORK_NAME \
         --global \
         --health-checks $HEALTH_CHECK_NAME \
         --load-balancing-scheme INTERNAL_SELF_MANAGED
@@ -78,6 +84,7 @@ do
     --project=$PROJECT \
     --filter="zone:$REGION-a" \
     | grep td-$svc | awk '{print $1}')
+    echo "NEG name: $NEG_NAME"
     
      # [3a] Add all (3) NEGs (one per zone) as backends to the backend service
     for zone in "${USED_ZONES[@]}"
@@ -90,28 +97,14 @@ do
             --balancing-mode RATE \
             --max-rate-per-endpoint 5
     done
-
-    echo "Deleted all traffic director resources."
 done
 
-# [2a] create only one ULR map that uses the first backend service as default
-gcloud compute url-maps create $URL_MAP \
+# [2a] create ULR map based on yaml file. First we need to replace the [PROJECT_ID] and [URL_MAP_NAME]
+sed 's/PROJECT_ID/'$PROJECT'/g' urlmap1_template.yaml > urlmap1.yaml
+sed -i 's/URL_MAP_NAME/'$URL_MAP'/g' urlmap1.yaml
+gcloud compute url-maps import $URL_MAP \
     --project=$PROJECT \
-    --default-service $BACKEND_SVC-service-1     # change default later
-
-# [2a-1] create the URL map path matcher for service x
-gcloud compute url-maps add-path-matcher $URL_MAP \
-    --project=$PROJECT \
-    --default-service $BACKEND_SVC-service-1 \
-    --backend-service-path-rules="/service-1/*=$BACKEND_SVC-service-1,/service-2/*=$BACKEND_SVC-service-2,/service-3/*=$BACKEND_SVC-service-3" \
-    --path-matcher-name $PATH_MATCHER
-
-# [2a-2] create the URL map host rule matcher for service x
-gcloud compute url-maps add-host-rule $URL_MAP \
-    --project=$PROJECT \
-    --hosts service-1,service-2,service-3  \
-    --path-matcher-name $PATH_MATCHER
-
+    --source=urlmap1.yaml
 
 # [2] create the target http proxy
 gcloud compute target-http-proxies create $TARGET_HTTP_PROXY \
@@ -123,8 +116,8 @@ gcloud compute forwarding-rules create $GLOBAL_FORWARDING_RULE \
     --project=$PROJECT \
     --global \
     --load-balancing-scheme=$GLOBAL_FORWARDING_RULE_LB_SCHEME \
-    --address=$GLOBAL_FORWARDING_RULE_IP \
-    --target-http-proxy=$TARGET_HTTP_PROXY \
+    --address $GLOBAL_FORWARDING_RULE_IP \
+    --target-http-proxy $TARGET_HTTP_PROXY \
     --ports $GLOBAL_FORWARDING_RULE_PORT \
     --network $NETWORK_NAME
 

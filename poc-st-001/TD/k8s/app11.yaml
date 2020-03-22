@@ -1,17 +1,18 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: hostname
+  name: service11
   annotations:
     cloud.google.com/neg: '{"exposed_ports":{"80":{}}}'
+  namespace: td
 spec:
   ports:
   - port: 80
-    name: hostname-service
+    name: port11
     protocol: TCP
     targetPort: 8000
   selector:
-    run: app1
+    app: app11
   type: ClusterIP
 
 ---
@@ -20,25 +21,22 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    run: app1
-  name: app1
+    app: app11
+  name: app11
+  namespace: td
 spec:
-  replicas: 2
+  replicas: 3
   template:
     metadata:
       labels:
-        run: app1
+        app: app11
     spec:
       containers:
-      - image: gcr.io/kubernetes-e2e-test-images/serve-hostname-amd64:1.1
-        name: app-hostname
-        command:
-        - /bin/sh
-        - -c
-        - /serve_hostname -http=true -udp=false -port=8000
+      - image: gcr.io/hewagner-demos-2/td-green:v1.0.1
+        name: app11-container
         ports:
-        - protocol: TCP
-          containerPort: 8000
+        - containerPort: 8000
+          protocol: TCP
       - image: docker.io/istio/proxyv2:1.1.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -94,13 +92,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-#        readinessProbe:
-#          failureThreshold: 30
-#          httpGet:
-#            path: /healthz/ready
-#            port: 15020
-#          initialDelaySeconds: 1
-#          periodSeconds: 2
         resources:
           limits:
             cpu: "2"

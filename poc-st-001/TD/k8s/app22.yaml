@@ -1,27 +1,43 @@
-apiVersion: apps/v1
+apiVersion: v1
+kind: Service
+metadata:
+  name: service22
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports":{"80":{}}}'
+  namespace: td
+spec:
+  ports:
+  - port: 80
+    name: port22
+    protocol: TCP
+    targetPort: 8001
+  selector:
+    app: app22
+  type: ClusterIP
+
+---
+
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    run: client
-  name: busybox
+    app: app22
+  name: app22
   namespace: td
 spec:
-  selector:
-    matchLabels:
-      run: client
-  replicas: 1
+  replicas: 3
   template:
     metadata:
       labels:
-        run: client
+        app: app22
     spec:
       containers:
-      - image: busybox
-        name: busybox
-        command:
-          - sleep
-          - "3600"
-      - image: docker.io/istio/proxyv2:1.2.4
+      - image: gcr.io/hewagner-demos-2/td-blue:v1.0.1
+        name: app22-container
+        ports:
+        - containerPort: 8001
+          protocol: TCP
+      - image: docker.io/istio/proxyv2:1.1.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -106,7 +122,7 @@ spec:
         env:
         - name: DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK
           value: "true"
-        image: docker.io/istio/proxy_init:1.2.4
+        image: docker.io/istio/proxy_init:1.1.2
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
