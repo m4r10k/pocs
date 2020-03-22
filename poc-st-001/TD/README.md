@@ -51,7 +51,7 @@ This demo implementation is based on: https://cloud.google.com/traffic-director/
 ./install.sh -p hewagner-demos-2
 kubectl apply -f app11.yaml
 kubectl apply -f app22.yaml
-#kubectl apply -f app33.yaml
+kubectl apply -f app33.yaml
 kubectl apply -f td_client.yaml
 sleep 10
 ./create-td2.sh -p hewagner-demos-2
