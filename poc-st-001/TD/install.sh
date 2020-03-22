@@ -15,32 +15,39 @@ then
     exit
 fi
 
-REGION="europe-west3"
-VM_ZONE="europe-west3-c"
+REGION1="europe-west3"
+REGION2="europe-west3"
 NETWORK_NAME="td-vpc"
-GKE_SUBNET_NAME="td-subnet"
-GKE_IP_RANGE="10.11.0.0/20"
+GKE_SUBNET_NAME_1="td-subnet-w3"
+GKE_SUBNET_NAME_2="td-subnet-w4"
+GKE_IP_RANGE_1="10.11.0.0/20"
+GKE_IP_RANGE_2="10.12.0.0/20"
 FW_PREFIX="td-vpc"
-GKE_MASTER_EXT_IP="172.16.1.0/28"
-KEYRING_NAME="td-key-ring-1"
-KEY_NAME="td-key-1"
-CLU_NAME="td-cluster"
+GKE_MASTER_EXT_IP_1="172.16.1.0/28"
+GKE_MASTER_EXT_IP_2="172.16.2.0/28"
+CLU_NAME_1="td-cluster-w3"
+CLU_NAME_1="td-cluster-w4"
 CONTAINER_NAME_1="td-green"
 CONTAINER_NAME_2="td-blue"
 CONTAINER_NAME_3="td-red"
 CONTAINER_VERSION="v1.0.1"
-TEST_VM_NAME="td-test-vm"
-ROUTER_NAME="td-router"
-NAT="td-nat"
+ROUTER_NAME_1="td-router-w3"
+ROUTER_NAME_2="td-router-w4"
+NAT_1="td-nat-w3"
+NAT_2="td-nat-w4"
 NAMESPACE="td"
 SERVICE_PREFIX="service"
 
 # Delete resources if -d was provided
 if [ $DELETE == 1 ]; then
     # delete the cluster
-    gcloud container clusters delete $CLU_NAME \
+    gcloud container clusters delete $CLU_NAME_1 \
         --project=$PROJECT \
-        --region=$REGION \
+        --region=$REGION1 \
+        -q --async
+    gcloud container clusters delete $CLU_NAME_2 \
+        --project=$PROJECT \
+        --region=$REGION2 \
         -q --async
 
     # delete the containers in the registry
@@ -56,12 +63,19 @@ if [ $DELETE == 1 ]; then
 
 
     # delete NEGs
-    for neg in $(gcloud compute network-endpoint-groups list --project=$PROJECT --format="value(name)" --filter="zone:$REGION-a" | grep "$NAMESPACE-$SERVICE_PREFIX")
+    for neg in $(gcloud compute network-endpoint-groups list --project=$PROJECT --format="value(name)" --filter="zone:$REGION1-a" | grep "$NAMESPACE-$SERVICE_PREFIX")
     do
         echo $neg
-        gcloud compute network-endpoint-groups delete $neg --zone=$REGION-a -q --project=$PROJECT
-        gcloud compute network-endpoint-groups delete $neg --zone=$REGION-b -q --project=$PROJECT
-        gcloud compute network-endpoint-groups delete $neg --zone=$REGION-c -q --project=$PROJECT
+        gcloud compute network-endpoint-groups delete $neg --zone=$REGION1-a -q --project=$PROJECT
+        gcloud compute network-endpoint-groups delete $neg --zone=$REGION1-b -q --project=$PROJECT
+        gcloud compute network-endpoint-groups delete $neg --zone=$REGION1-c -q --project=$PROJECT
+    done
+    for neg in $(gcloud compute network-endpoint-groups list --project=$PROJECT --format="value(name)" --filter="zone:$REGION2-a" | grep "$NAMESPACE-$SERVICE_PREFIX")
+    do
+        echo $neg
+        gcloud compute network-endpoint-groups delete $neg --zone=$REGION2-a -q --project=$PROJECT
+        gcloud compute network-endpoint-groups delete $neg --zone=$REGION2-b -q --project=$PROJECT
+        gcloud compute network-endpoint-groups delete $neg --zone=$REGION2-c -q --project=$PROJECT
     done
 
     # delete firewall rules
@@ -75,32 +89,46 @@ if [ $DELETE == 1 ]; then
     # delete subnet and VPC
     while :
     do
-        echo "Waiting for GKE cluster beeing deleted"
-        clu=$(gcloud container clusters list --project=$PROJECT --filter="NAME:$CLU_NAME" --format="value(name)")
+        echo "Waiting for GKE clusters beeing deleted"
+        clu1=$(gcloud container clusters list --project=$PROJECT --filter="NAME:$CLU_NAME_1" --format="value(name)")
+        clu2=$(gcloud container clusters list --project=$PROJECT --filter="NAME:$CLU_NAME_2" --format="value(name)")
 
-        if [ "$clu" = "$CLU_NAME" ]
+        if [ "$clu1" = "$CLU_NAME_1" ] || [ "$clu2" = "$CLU_NAME_2" ]
         then
             echo "Waiting..."
         else
-            echo "Cluster was deleted..."
+            echo "Cluster have been deleted..."
             break
         fi
         sleep 15
     done
 
     # delete networking services
-    gcloud compute routers nats delete $NAT \
+    gcloud compute routers nats delete $NAT_1 \
         --project=$PROJECT \
-        --region=$REGION \
+        --region=$REGION1 \
         --router=$ROUTER_NAME \
         -q
-    gcloud compute routers delete $ROUTER_NAME \
-        --region=$REGION \
+    gcloud compute routers nats delete $NAT_2 \
+        --project=$PROJECT \
+        --region=$REGION2 \
+        --router=$ROUTER_NAME \
+        -q
+    gcloud compute routers delete $ROUTER_NAME_1 \
+        --region=$REGION1 \
         --project=$PROJECT \
         -q
-    gcloud compute networks subnets delete $GKE_SUBNET_NAME \
+    gcloud compute routers delete $ROUTER_NAME_2 \
+        --region=$REGION2 \
         --project=$PROJECT \
-        --region=$REGION \
+        -q
+    gcloud compute networks subnets delete $GKE_SUBNET_NAME_1 \
+        --project=$PROJECT \
+        --region=$REGION1 \
+        -q
+    gcloud compute networks subnets delete $GKE_SUBNET_NAME_2 \
+        --project=$PROJECT \
+        --region=$REGION2 \
         -q
     gcloud compute networks delete $NETWORK_NAME \
         --project=$PROJECT \
@@ -141,12 +169,17 @@ gcloud compute networks create $NETWORK_NAME \
     --bgp-routing-mode=global
 
 # create GKE subnet
-gcloud compute networks subnets create $GKE_SUBNET_NAME \
+gcloud compute networks subnets create $GKE_SUBNET_NAME_1 \
     --project=$PROJECT \
     --network=$NETWORK_NAME \
-    --region=$REGION \
-    --range=$GKE_IP_RANGE
+    --region=$REGION1 \
+    --range=$GKE_IP_RANGE_1
 
+gcloud compute networks subnets create $GKE_SUBNET_NAME_2 \
+    --project=$PROJECT \
+    --network=$NETWORK_NAME \
+    --region=$REGION2 \
+    --range=$GKE_IP_RANGE_2
 
 # allow ssh access to any nodes in the gke subnet with "allow-ssh" tag
 gcloud compute firewall-rules create $FW_PREFIX-fw-allow-ssh \
@@ -175,42 +208,19 @@ gcloud compute firewall-rules create $FW_PREFIX-fw-http-rfc1918 \
     --source-ranges 10.0.0.0/8,192.168.0.0/16,172.16.0.0/16 \
     --rules tcp:80,tcp:8000
 
-### Prepare for application-layer secrets
-# Create customer managed encryption key for App-layer-secrets
-gcloud kms keyrings create $KEYRING_NAME \
-    --location $REGION \
-    --project=$PROJECT
 
-gcloud kms keys create $KEY_NAME \
-  --project=$PROJECT \
-  --purpose=encryption \
-  --location $REGION \
-  --keyring $KEYRING_NAME
-
-# Grant access to the container engine service account
-PRJN=$(gcloud projects list --filter='project_id:'$PROJECT --format='value(PROJECT_NUMBER)')
-SA=service-$PRJN@container-engine-robot.iam.gserviceaccount.com
-gcloud kms keys add-iam-policy-binding $KEY_NAME \
-  --location $REGION \
-  --keyring $KEYRING_NAME \
-  --member serviceAccount:$SA \
-  --role roles/cloudkms.cryptoKeyEncrypterDecrypter \
-  --project $PROJECT
-
-
-
-### Create GKE cluster
-gcloud beta container clusters create $CLU_NAME \
+### Create GKE clusters
+gcloud beta container clusters create $CLU_NAME_1 \
     --project $PROJECT \
-    --region $REGION \
+    --region $REGION1 \
     --network $NETWORK_NAME \
-    --subnetwork $GKE_SUBNET_NAME \
+    --subnetwork $GKE_SUBNET_NAME_1 \
     --scopes https://www.googleapis.com/auth/cloud-platform \
     --no-enable-basic-auth \
     --release-channel "regular" \
     --enable-ip-alias \
     --enable-private-nodes \
-    --master-ipv4-cidr $GKE_MASTER_EXT_IP \
+    --master-ipv4-cidr $GKE_MASTER_EXT_IP_1 \
     --no-enable-master-authorized-networks \
     --num-nodes "2" \
     --addons HorizontalPodAutoscaling,HttpLoadBalancing,ApplicationManager \
@@ -218,21 +228,50 @@ gcloud beta container clusters create $CLU_NAME \
     --enable-autorepair \
     --max-surge-upgrade 1 \
     --max-unavailable-upgrade 0 \
-    --enable-stackdriver-kubernetes \
-    --database-encryption-key "projects/$PROJECT/locations/$REGION/keyRings/$KEYRING_NAME/cryptoKeys/$KEY_NAME"
+    --enable-stackdriver-kubernetes
+
+gcloud beta container clusters create $CLU_NAME_2 \
+    --project $PROJECT \
+    --region $REGION2 \
+    --network $NETWORK_NAME \
+    --subnetwork $GKE_SUBNET_NAME_2 \
+    --scopes https://www.googleapis.com/auth/cloud-platform \
+    --no-enable-basic-auth \
+    --release-channel "regular" \
+    --enable-ip-alias \
+    --enable-private-nodes \
+    --master-ipv4-cidr $GKE_MASTER_EXT_IP_2 \
+    --no-enable-master-authorized-networks \
+    --num-nodes "2" \
+    --addons HorizontalPodAutoscaling,HttpLoadBalancing,ApplicationManager \
+    --enable-autoupgrade \
+    --enable-autorepair \
+    --max-surge-upgrade 1 \
+    --max-unavailable-upgrade 0 \
+    --enable-stackdriver-kubernetes
 
 # Test if cluster was created
-cluster=$(gcloud container clusters list --project=$PROJECT --format='value(NAME)' | grep $CLU_NAME)
-if [ $cluster == $CLU_NAME ]
+cluster1=$(gcloud container clusters list --project=$PROJECT --format='value(NAME)' | grep $CLU_NAME_1)
+cluster2=$(gcloud container clusters list --project=$PROJECT --format='value(NAME)' | grep $CLU_NAME_2)
+if [ $cluster1 == $CLU_NAME_1 ] && [ $cluster2 == $CLU_NAME_2 ]
 then
-    echo "### Sucessfully deployed GKE cluster. ###"
+    echo "### Sucessfully deployed GKE clusters. ###"
 
-    echo "Configure kubectl cmdline access..."
-    gcloud container clusters get-credentials $CLU_NAME \
-        --region $REGION \
+    gcloud container clusters get-credentials $CLU_NAME_1 \
+        --region $REGION1 \
         --project $PROJECT
     
-    echo "Testing kubectl by showing cluster nodes..."
+    echo "Testing kubectl by showing cluster nodes 1..."
+    kubectl get nodes
+
+    echo "Creating namespace 'td...'"
+    kubectl create namespace $NAMESPACE
+
+    gcloud container clusters get-credentials $CLU_NAME_2 \
+        --region $REGION2 \
+        --project $PROJECT
+    
+    echo "Testing kubectl by showing cluster nodes 1..."
     kubectl get nodes
 
     echo "Creating namespace 'td...'"
@@ -264,16 +303,27 @@ do
 done
 
 # Create a Cloud Router for NAT
-gcloud compute routers create $ROUTER_NAME \
+gcloud compute routers create $ROUTER_NAME_1 \
     --project $PROJECT \
-    --region=$REGION \
+    --region=$REGION1 \
+    --network=$NETWORK_NAME 
+gcloud compute routers create $ROUTER_NAME_2 \
+    --project $PROJECT \
+    --region=$REGION2 \
     --network=$NETWORK_NAME 
     
 # Enable Cloud NAT because we have a private cluster
-gcloud compute routers nats create $NAT \
-    --router=$ROUTER_NAME \
+gcloud compute routers nats create $NAT_1 \
+    --router=$ROUTER_NAME_1 \
     --auto-allocate-nat-external-ips \
     --nat-all-subnet-ip-ranges \
     --enable-logging \
-	--region $REGION \
+	--region $REGION1 \
+	--project $PROJECT
+gcloud compute routers nats create $NAT_2 \
+    --router=$ROUTER_NAME_2 \
+    --auto-allocate-nat-external-ips \
+    --nat-all-subnet-ip-ranges \
+    --enable-logging \
+	--region $REGION2 \
 	--project $PROJECT

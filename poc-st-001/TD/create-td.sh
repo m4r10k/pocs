@@ -31,6 +31,7 @@ GLOBAL_FORWARDING_RULE_LB_SCHEME="INTERNAL_SELF_MANAGED"
 
 # Delete traffic director resources if -d was provided
 if [ $DELETE == 1 ]; then
+    echo "Starting deletion..."
     # TD - delete forwarding rule
     gcloud compute forwarding-rules delete $GLOBAL_FORWARDING_RULE \
         --project=$PROJECT -q \

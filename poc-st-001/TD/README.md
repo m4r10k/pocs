@@ -10,31 +10,67 @@ The K8s deployments, services, ingress and L7 ILB are all via K8s resource manif
 This demo implementation is based on: https://cloud.google.com/traffic-director/docs/set-up-gke-pods
 
 
+## How Traffic Director works
+The diagram below shows how the TD components "Global forwarding rule", "Target HTTP Proxy" and "Backend Services" work together with Network Enpoint groups and Kubernetes deployments in regional GKE clusters:
+![TD overview](./image/TD_overview.png)
+
+
+## Demo Architecture
+The diagram below shows the architecture we build in this demo:
+...
 
 ## Install instructions
+### Set up networking, GKE clusters and build containers
 * Open the command line, make sure gcloud is installed and authenticate yourself with gcloud auth login
-* Change the PROJECT Env var in install.sh
-* Run the following
+* Create a project env var and set it to your project id
     ```
-    ./install.sh -p [PROJECT_ID]
+    PROJECT_ID=[your prj id]
+    ```
+* Run the following script
+    ```
+    ./install.sh -p $PROJECT_ID
     ```
     This should take about 5-10 minutes to create.
-    Afterwards you can start deploying to your new cluster...
+* Before we start deploying the services to the clusters, first fetch the cluster config into env vars:
     ```
-    kubectl apply -f app1.yaml
-    kubectl apply -f app2.yaml
-    kubectl apply -f app3.yaml
+    gcloud container clusters get-credentials td-cluster-w3 --region europe-west3 --project $PROJECT_ID
+    WEST3=`kubectl config current-context`
+    gcloud container clusters get-credentials td-cluster-w4 --region europe-west4 --project $PROJECT_ID
+    WEST4=`kubectl config current-context`
     ```
+
+
+### Deploy the micro services
+* Now we can deploy the microservices in our 2 regional GKE cluster
+    ```
+    kubectl apply -f k8s/app1.yaml --cluster $WEST3
+    kubectl apply -f k8s/app2.yaml --cluster $WEST3
+    kubectl apply -f k8s/app3.yaml --cluster $WEST3
+    kubectl apply -f k8s/app1.yaml --cluster $WEST4
+    kubectl apply -f k8s/app2.yaml --cluster $WEST4
+    kubectl apply -f k8s/app3.yaml --cluster $WEST4
+    ```
+* This will install the services 1, 2 & 3 on both GKE clusters. The deployment for each service has 3 replicas, which will be spread over 3 different zones.
+* Each pod consists of a container running the code + a sidecar container used as proxy for all communication with the pod.
+* The neg annotation in the service manifest triggers the creation of Network endpoint groups on GCP. These NEGs are directly connected to the pods and will be used by Traffic Director. 
+* Service1 communicates with service2 and service2 with service3
+
+
+### Deploy the Traffic Director
 * Now that we have our pods & services up and running we can continue with configuring the traffic director:
     ```
     ./create-td.sh -p [PROJECT_ID]
     ```
+* This creates all resources needed for TD. Have a look at the **create-td.sh** file to learn how it works.
 
 
 ## Testing the deployment
-* First we deploy a new pod running Busybox + an xDS API-compatible sidecare proxy (Istio/Envoy):
+We will test our application in multiple ways. Let's start simple by testing if the L7 routing works:
+
+### Test L7 routing
+* For this we deploy a new pod who is running "Busybox" + an xDS API-compatible sidecare proxy (Istio/Envoy) in one cluster:
     ```
-    kubectl apply -f td_client.yaml
+    kubectl apply -f k8s/td_client.yaml --cluster=$WEST3
     
     # Get name of busybox pod
     BUSYBOX_POD=$(kubectl get po -n td -l run=client -o=jsonpath='{.items[0].metadata.name}')
