@@ -1,4 +1,4 @@
-# Deploy a private GKE with Traffic Director integration
+# Deploy private GKE cluster(s) with Traffic Director integration
 
 ## Description
 Source files for the deployment of a GKE Cluster with 3 services which communicate with each other via the Traffic Director.
