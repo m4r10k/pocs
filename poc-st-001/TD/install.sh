@@ -16,7 +16,7 @@ then
 fi
 
 REGION1="europe-west3"
-REGION2="europe-west3"
+REGION2="europe-west4"
 NETWORK_NAME="td-vpc"
 GKE_SUBNET_NAME_1="td-subnet-w3"
 GKE_SUBNET_NAME_2="td-subnet-w4"
@@ -26,7 +26,7 @@ FW_PREFIX="td-vpc"
 GKE_MASTER_EXT_IP_1="172.16.1.0/28"
 GKE_MASTER_EXT_IP_2="172.16.2.0/28"
 CLU_NAME_1="td-cluster-w3"
-CLU_NAME_1="td-cluster-w4"
+CLU_NAME_2="td-cluster-w4"
 CONTAINER_NAME_1="td-green"
 CONTAINER_NAME_2="td-blue"
 CONTAINER_NAME_3="td-red"
@@ -40,6 +40,7 @@ SERVICE_PREFIX="service"
 
 # Delete resources if -d was provided
 if [ $DELETE == 1 ]; then
+    echo "########## Start deleting Clusters, Container images & networking resources ##########"
     # delete the cluster
     gcloud container clusters delete $CLU_NAME_1 \
         --project=$PROJECT \
@@ -133,8 +134,6 @@ if [ $DELETE == 1 ]; then
     gcloud compute networks delete $NETWORK_NAME \
         --project=$PROJECT \
         -q
-
-    # deletion of kms key rings and keys is not possible
     
     exit
 fi
@@ -152,6 +151,7 @@ gcloud services enable \
 # (trafficdirector.googleapis.com). The proxy uses for this
 # the service account of the GKE node instance and that's why
 # it needs the compute.networkViewer role.
+echo "########## Adding NetworkViewer Role to Compute Engine Default Service Account ##########"
 SERVICE_ACCOUNT_EMAIL=`gcloud iam service-accounts list \
   --project=$PROJECT \
   --format='value(email)' \
@@ -163,6 +163,7 @@ gcloud projects add-iam-policy-binding ${PROJECT} \
 
 ### NETWORKING
 # create vpc
+echo "########## Creating VPC, subnets and firewall rules ##########"
 gcloud compute networks create $NETWORK_NAME \
     --project=$PROJECT \
     --subnet-mode=custom \
@@ -208,7 +209,7 @@ gcloud compute firewall-rules create $FW_PREFIX-fw-http-rfc1918 \
     --source-ranges 10.0.0.0/8,192.168.0.0/16,172.16.0.0/16 \
     --rules tcp:80,tcp:8000
 
-
+echo "########## Creating 2 private GKE Clusters ##########"
 ### Create GKE clusters
 gcloud beta container clusters create $CLU_NAME_1 \
     --project $PROJECT \
@@ -228,7 +229,8 @@ gcloud beta container clusters create $CLU_NAME_1 \
     --enable-autorepair \
     --max-surge-upgrade 1 \
     --max-unavailable-upgrade 0 \
-    --enable-stackdriver-kubernetes
+    --enable-stackdriver-kubernetes \
+    --async
 
 gcloud beta container clusters create $CLU_NAME_2 \
     --project $PROJECT \
@@ -271,7 +273,7 @@ then
         --region $REGION2 \
         --project $PROJECT
     
-    echo "Testing kubectl by showing cluster nodes 1..."
+    echo "Testing kubectl by showing cluster nodes 2..."
     kubectl get nodes
 
     echo "Creating namespace 'td...'"
@@ -283,6 +285,7 @@ fi
 
 
 # Building container images with Cloud Build
+echo "########## Building container images with Cloud Build ##########"
 for i in 1 2 3
 do
     container_name="CONTAINER_NAME_${i}"
@@ -302,6 +305,7 @@ do
     fi
 done
 
+echo "########## Enabling NAT for GKE nodes (they have only private IPs) ##########"
 # Create a Cloud Router for NAT
 gcloud compute routers create $ROUTER_NAME_1 \
     --project $PROJECT \

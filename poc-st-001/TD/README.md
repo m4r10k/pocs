@@ -82,19 +82,28 @@ We will test our application in multiple ways. Let's start simple by testing if 
     kubectl exec -it $BUSYBOX_POD -n td -c busybox -- /bin/sh -c "$TEST_CMD"
     ```
 
-## Fast install
+## Fast install + quick test
 ```
-./install.sh -p hewagner-demos-2
-kubectl apply -f app11.yaml
-kubectl apply -f app22.yaml
-kubectl apply -f app33.yaml
-kubectl apply -f td_client.yaml
-sleep 10
-./create-td2.sh -p hewagner-demos-2
-sleep 20
-gcloud container clusters get-credentials td-cluster --region europe-west3
-CLU1=`kubectl config current-context`
-kubectl exec -it $(kubectl get po -n td -l run=client -o=jsonpath='{.items[0].metadata.name}' --cluster=$CLU1) --cluster=$CLU1 -n td -c busybox -- /bin/sh -c 'wget -q -O - service11'; echo
+PROJECT_ID=[your project ID]
+./install.sh -p $PROJECT_ID
+
+gcloud container clusters get-credentials td-cluster-w3 --region europe-west3 --project $PROJECT_ID
+WEST3=`kubectl config current-context`
+gcloud container clusters get-credentials td-cluster-w4 --region europe-west4 --project $PROJECT_ID
+WEST4=`kubectl config current-context`
+
+kubectl apply -f k8s/app1.yaml --cluster $WEST3
+kubectl apply -f k8s/app2.yaml --cluster $WEST3
+kubectl apply -f k8s/app3.yaml --cluster $WEST3
+kubectl apply -f k8s/app1.yaml --cluster $WEST4
+kubectl apply -f k8s/app2.yaml --cluster $WEST4
+kubectl apply -f k8s/app3.yaml --cluster $WEST4
+kubectl apply -f td_client.yaml --cluster $WEST3
+sleep 15
+./create-td2.sh -p $PROJECT_ID
+sleep 15
+
+kubectl exec -it $(kubectl get po -n td -l run=client -o=jsonpath='{.items[0].metadata.name}' --cluster=$WEST3) --cluster=$WEST3 -n td -c busybox -- /bin/sh -c 'wget -q -O - service11'; echo
 ```
 
 ## Error handling

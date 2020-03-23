@@ -31,7 +31,7 @@ GLOBAL_FORWARDING_RULE_LB_SCHEME="INTERNAL_SELF_MANAGED"
 
 # Delete traffic director resources if -d was provided
 if [ $DELETE == 1 ]; then
-    echo "Starting deletion..."
+    echo "########## Start deleting Traffic Director resources ##########"
     # TD - delete forwarding rule
     gcloud compute forwarding-rules delete $GLOBAL_FORWARDING_RULE \
         --project=$PROJECT -q \
@@ -62,6 +62,7 @@ fi
 
 # [3b] create one health check used by all backend service.
 # You can also create multiple health checks or 1 different check per service.
+echo "########## Creating HTTP health check ##########"
 gcloud compute health-checks create http $HEALTH_CHECK_NAME \
     --project=$PROJECT \
     --check-interval=3s \
@@ -70,6 +71,7 @@ gcloud compute health-checks create http $HEALTH_CHECK_NAME \
     --request-path="/" \
     --use-serving-port
 
+echo "########## Creating TD Backend services and linking them to NEGs ##########"
 for svc in "${SVC_NAMES[@]}"
 do
     # [3] create one backend service per GKE service
