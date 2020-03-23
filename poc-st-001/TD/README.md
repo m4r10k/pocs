@@ -168,6 +168,7 @@ We will test our application in multiple ways. Let's start simple by testing if 
     
 
 ## Fast install + quick test
+
 ```bash
 PROJECT_ID=[your project ID]
 ./install.sh -p $PROJECT_ID
@@ -201,9 +202,8 @@ If anything goes wrong ...
 
 
 ## Clean Up
-./create-td.sh -p hewagner-demos-2 -d
-kubectl delete svc service1 service2 service3 -n td
-kubectl delete deployment app10 app20 app30 client -n td
-./install.sh -p hewagner-demos-2 -d
-
+```bash
+./create-td.sh -p $PROJECT_ID -d
+./install.sh -p $PROJECT_ID -d
+```
 
