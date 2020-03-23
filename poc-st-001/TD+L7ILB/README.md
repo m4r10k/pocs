@@ -1,11 +1,11 @@
-# Deploy private GKE cluster(s) with Traffic Director integration
+# End to end Traffic Director + L7 ILB demo
 
 ## Description
-This demo deploys 2 GKE Cluster with 3 services each to demonstrate the features of Traffic Director.
+Source files for the deployment of a GKE Cluster with 3 services which communicate with each other via the Traffic Director.
 
-* The network, Firewall rules, cluster and Traffic Director are deployed via gcloud (shell script).
+The network, Firewall rules, cluster and Traffic Director are deployed via gcloud (shell script).
 
-* The K8s deployments and services are all via K8s resource manifest files.
+The K8s deployments, services, ingress and L7 ILB are all via K8s resource manifest files.
 
 This demo implementation is based on: https://cloud.google.com/traffic-director/docs/set-up-gke-pods
 

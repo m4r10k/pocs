@@ -1,0 +1,21 @@
+defaultService: projects/PROJECT_ID/global/backendServices/td-backend-service3
+name: td-url-map-ip
+kind: compute#urlMap
+hostRules:
+- hosts:
+  - '*'
+  pathMatcher: path-matcher-1
+pathMatchers:
+- defaultService: projects/PROJECT_ID/global/backendServices/td-backend-service3
+  name: path-matcher-1
+  pathRules:
+  - paths:
+    - /service1
+    service: projects/PROJECT_ID/global/backendServices/td-backend-service1
+  - paths:
+    - /service2
+    service: projects/PROJECT_ID/global/backendServices/td-backend-service2
+  - paths:
+    - /service3
+    service: projects/PROJECT_ID/global/backendServices/td-backend-service3
+  
