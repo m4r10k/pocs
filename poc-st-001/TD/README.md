@@ -131,7 +131,7 @@ We will test our application in multiple ways. Let's start simple by testing if 
     ```
 ### VIP-based routing
 
-In the wget request above we've always used the hostname "test.com" which was resolved to the pod IP address by the Traffic director. For this we specified the address 0.0.0.0 when creating the forwarding rule in "create-td.sh" file. But you might have noticed that we also created one forwarding rule with the Virtual IP (VIP) 10.99.1.1. So in case we don't want (or can) use hostnames for our requests we can also use VIPs. In our case here the service3 is exposed behind the VIP 10.99.1.1. But if you request 10.99.1.1/service2 you will be routed to service2. Have a closer look at the urlmapip.yaml file for details.
+* In the wget request above we've always used the hostname "test.com" which was resolved to the pod IP address by the Traffic director. For this we specified the address 0.0.0.0 when creating the forwarding rule in "create-td.sh" file. But you might have noticed that we also created one forwarding rule with the Virtual IP (VIP) 10.99.1.1. So in case we don't want (or can) use hostnames for our requests we can also use VIPs. In our case here the service3 is exposed behind the VIP 10.99.1.1. But if you request 10.99.1.1/service2 you will be routed to service2. Have a closer look at the urlmapip.yaml file for details.
 
     ```bash
     TEST_CMD="wget -q -O - 10.99.1.1; echo;"
