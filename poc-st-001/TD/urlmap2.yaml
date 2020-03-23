@@ -1,0 +1,62 @@
+defaultService: projects/hewagner-demos-2/global/backendServices/td-backend-service1
+name: td-url-map
+hostRules:
+- hosts:
+  - test.com
+  pathMatcher: path-matcher-td
+kind: compute#urlMap
+pathMatchers:
+- defaultService: projects/hewagner-demos-2/global/backendServices/td-backend-service1
+  name: path-matcher-td
+  routeRules:
+  - matchRules:
+    - fullPathMatch: /
+      headerMatches:
+        - headerName: Cookie
+          regexMatch: .*dogfood.*
+    priority: 0
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service3
+          weight: 100
+      urlRewrite:
+        pathPrefixRewrite: /service3
+  - matchRules:
+    - fullPathMatch: /
+    priority: 10
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service1
+        weight: 70
+      - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service2
+        weight: 30
+  - matchRules:
+    - fullPathMatch: /service1
+    priority: 20
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service1
+        weight: 100
+  - matchRules:
+    - fullPathMatch: /service2
+    priority: 30
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service2
+        weight: 100
+  - matchRules:
+    - fullPathMatch: /service3
+    priority: 40
+    routeAction:
+      weightedBackendServices:
+      - backendService: projects/hewagner-demos-2/global/backendServices/td-backend-service3
+        weight: 100
+      faultInjectionPolicy:
+        delay:
+          fixedDelay:
+            seconds: 3
+            nanos: 20
+          percentage: 30
+        abort:
+          httpStatus: 503
+          percentage: 30

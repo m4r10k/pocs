@@ -1,18 +1,18 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: service22
+  name: service3
   annotations:
     cloud.google.com/neg: '{"exposed_ports":{"80":{}}}'
   namespace: td
 spec:
   ports:
   - port: 80
-    name: port22
+    name: port1
     protocol: TCP
-    targetPort: 8001
+    targetPort: 8002
   selector:
-    app: app22
+    app: app3
   type: ClusterIP
 
 ---
@@ -21,21 +21,21 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    app: app22
-  name: app22
+    app: app3
+  name: app3
   namespace: td
 spec:
   replicas: 3
   template:
     metadata:
       labels:
-        app: app22
+        app: app3
     spec:
       containers:
-      - image: gcr.io/hewagner-demos-2/td-blue:v1.0.1
-        name: app22-container
+      - image: gcr.io/PROJECT_ID/td-red:v1.0.1
+        name: app3-container
         ports:
-        - containerPort: 8001
+        - containerPort: 8002
           protocol: TCP
       - image: docker.io/istio/proxyv2:1.1.2
         imagePullPolicy: IfNotPresent

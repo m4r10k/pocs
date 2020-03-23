@@ -1,5 +1,5 @@
 defaultService: projects/PROJECT_ID/global/backendServices/td-backend-service1
-name: URL_MAP_NAME
+name: td-url-map
 hostRules:
 - hosts:
   - test.com
@@ -11,7 +11,19 @@ pathMatchers:
   routeRules:
   - matchRules:
     - fullPathMatch: /
+      headerMatches:
+        - headerName: Cookie
+          regexMatch: .*dogfood.*
     priority: 0
+    routeAction:
+      weightedBackendServices:
+        - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service3
+          weight: 100
+      urlRewrite:
+        pathPrefixRewrite: /service3
+  - matchRules:
+    - fullPathMatch: /
+    priority: 10
     routeAction:
       weightedBackendServices:
       - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service1
@@ -20,22 +32,31 @@ pathMatchers:
         weight: 30
   - matchRules:
     - fullPathMatch: /service1
-    priority: 1
+    priority: 20
     routeAction:
       weightedBackendServices:
       - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service1
         weight: 100
   - matchRules:
     - fullPathMatch: /service2
-    priority: 3
+    priority: 30
     routeAction:
       weightedBackendServices:
       - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service2
         weight: 100
   - matchRules:
     - fullPathMatch: /service3
-    priority: 5
+    priority: 40
     routeAction:
       weightedBackendServices:
       - backendService: projects/PROJECT_ID/global/backendServices/td-backend-service3
         weight: 100
+      faultInjectionPolicy:
+        delay:
+          fixedDelay:
+            seconds: 3
+            nanos: 20
+          percentage: 30
+        abort:
+          httpStatus: 503
+          percentage: 30

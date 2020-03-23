@@ -12,7 +12,7 @@ spec:
     protocol: TCP
     targetPort: 8002
   selector:
-    app: app30
+    app: app3
   type: ClusterIP
 
 ---
@@ -21,19 +21,19 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    app: app30
-  name: app30
+    app: app3
+  name: app3
   namespace: td
 spec:
   replicas: 3
   template:
     metadata:
       labels:
-        app: app30
+        app: app3
     spec:
       containers:
       - image: gcr.io/hewagner-demos-2/td-red:v1.0.1
-        name: app1-container
+        name: app3-container
         ports:
         - containerPort: 8002
           protocol: TCP
